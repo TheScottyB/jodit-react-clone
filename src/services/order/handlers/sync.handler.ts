@@ -1,6 +1,14 @@
 /**
  * Order Synchronization Handler
  * Handles synchronization of orders between Spocket and Square
+ * 
+ * This module provides functionality for:
+ * - Building mappings between orders from different platforms
+ * - Processing order batches for synchronization
+ * - Resolving status and payment conflicts
+ * - Tracking synchronization progress
+ * - Creating and updating orders across platforms
+ * - Processing webhooks for real-time synchronization
  */
 
 import { createLogger } from '../../common/logger';
@@ -43,8 +51,13 @@ const logger = createLogger('sync-handler');
 
 /**
  * Build mappings between Spocket and Square orders
+ * 
+ * This function establishes relationships between orders across different platforms
+ * by matching on IDs, order numbers, or explicit references.
+ * 
  * @param spocketOrders - Orders from Spocket
  * @param squareOrders - Orders from Square
+ * @returns Array of entity mappings linking orders between platforms
  */
 export const buildOrderMappings = (
   spocketOrders: Order[], 
@@ -55,10 +68,10 @@ export const buildOrderMappings = (
   // Build mappings from Spocket to Square
   for (const spocketOrder of spocketOrders) {
     // Look for matching Square order by reference
-    const squareOrder = squareOrders.find(sqOrder => {
-      return sqOrder.externalId === spocketOrder.id || 
-             sqOrder.orderNumber === spocketOrder.orderNumber;
-    });
+    const squareOrder = squareOrders.find(sqOrder => 
+      sqOrder.externalId === spocketOrder.id || 
+      sqOrder.orderNumber === spocketOrder.orderNumber
+    );
     
     if (squareOrder) {
       mappings.push({
@@ -260,8 +273,13 @@ export const updateOrderAcrossPlatforms = async (
 
 /**
  * Determine which order aspects need updating
- * @param sourceOrder - Source order
- * @param targetOrder - Target order
+ * 
+ * This function compares two orders and identifies which aspects (status, fulfillment, payment)
+ * have differences that require synchronization.
+ * 
+ * @param sourceOrder - Source order with current state
+ * @param targetOrder - Target order to be updated
+ * @returns Object indicating which aspects need updates
  */
 function determineRequiredUpdates(sourceOrder: Order, targetOrder: Order): {
   status: boolean;
@@ -270,8 +288,9 @@ function determineRequiredUpdates(sourceOrder: Order, targetOrder: Order): {
 } {
   return {
     status: sourceOrder.fulfillmentStatus !== targetOrder.fulfillmentStatus,
-    fulfillment: sourceOrder.shipping?.trackingNumber !== targetOrder.shipping?.trackingNumber ||
-                sourceOrder.shipping?.carrier !== targetOrder.shipping?.carrier,
+    fulfillment: 
+      sourceOrder.shipping?.trackingNumber !== targetOrder.shipping?.trackingNumber ||
+      sourceOrder.shipping?.carrier !== targetOrder.shipping?.carrier,
     payment: sourceOrder.paymentStatus !== targetOrder.paymentStatus
   };
 }
@@ -566,13 +585,21 @@ export const startSyncProgress = (totalOrders: number): SyncProgress => {
 
 /**
  * Update sync progress
- * @param update - Partial progress update
+ * 
+ * Updates the current synchronization progress with new information,
+ * properly merging nested objects and appending to arrays rather than replacing them.
+ * Logs progress updates at meaningful intervals.
+ * 
+ * @param update - Partial progress update to apply
+ * @returns Updated sync progress object
+ * @throws Error if no sync progress tracking has been started
  */
 export const updateSyncProgress = (update: Partial<SyncProgress>): SyncProgress => {
   if (!currentSyncProgress) {
     throw new Error('No sync progress tracking has been started');
   }
   
+  // Create new progress object with proper merging of nested structures
   currentSyncProgress = {
     ...currentSyncProgress,
     ...update,
@@ -683,46 +710,6 @@ export const loadSyncProgress = (syncId: string): SyncProgress | null => {
   }
 };
 
-/**
- * Process webhook event for real-time sync
- * @param event - Webhook event from either platform
- * @param source - Source platform (spocket or square)
- */
-export const processWebhookForSync = async (
-  event: any,
-  source: 'spocket' | 'square'
-): Promise<void> => {
-  try {
-    logger.info(`Processing webhook from ${source}`, { eventType: event.type });
-    
-    // Extract order ID from the event
-    let orderId: string | null = null;
-    
-    if (source === 'spocket') {
-      orderId = event.data?.order?.id;
-    } else if (source === 'square') {
-      orderId = event.data?.order?.id;
-    }
-    
-    if (!orderId) {
-      logger.warn(`No order ID found in webhook event from ${source}`);
-      return;
-    }
-    
-    // Get the full order details
-    const order = source === 'spocket'
-      ? await getSpocketOrderById(orderId)
-      : await getSquareOrderById(orderId);
-      
-    if (!order) {
-      logger.warn(`Order ${orderId} not found for webhook event from ${source}`);
-      return;
-    }
-    
-    // Determine the webhook event type and corresponding action
-    switch (event.type) {
-      case 'order.created':
-        await handleOrderCreatedWebhook(order, source);
         break;
         
       case 'order.updated':
