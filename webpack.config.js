@@ -49,16 +49,7 @@ module.exports = (env, argv) => {
     },
     optimization: {
       minimize: isProduction,
-      moduleIds: 'deterministic',
-      splitChunks: {
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all'
-          }
-        }
-      }
+      moduleIds: 'deterministic'
     },
     externals: {
       jodit: {

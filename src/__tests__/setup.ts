@@ -10,6 +10,11 @@ process.env.SQUARE_ACCESS_TOKEN = 'test_square_access_token';
 process.env.SQUARE_ENVIRONMENT = 'sandbox';
 process.env.SPOCKET_API_BASE_URL = 'https://test-api.spocket.co';
 
+// Add a dummy test so Jest doesn't complain about empty test suite
+test('test environment setup', () => {
+  expect(process.env.NODE_ENV).toBe('test');
+});
+
 
 // Mock external dependencies
 jest.mock('winston', () => ({
