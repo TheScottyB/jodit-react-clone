@@ -1,0 +1,134 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ErrorBoundary Snapshots should match snapshot when no error occurs 1`] = `
+<div>
+  <div>
+    Normal content
+  </div>
+</div>
+`;
+
+exports[`ErrorBoundary Snapshots should match snapshot with all props provided 1`] = `
+<div>
+  <div>
+    Custom error view
+  </div>
+</div>
+`;
+
+exports[`ErrorBoundary Snapshots should match snapshot with complex error message 1`] = `
+<div>
+  <div
+    class="error-boundary "
+  >
+    <h2>
+      Something went wrong
+    </h2>
+    <details>
+      <summary>
+        Error details
+      </summary>
+      <pre>
+        Error: Complex error
+      </pre>
+    </details>
+    <button
+      style="margin-top: 1rem;"
+    >
+      Try again
+    </button>
+  </div>
+</div>
+`;
+
+exports[`ErrorBoundary Snapshots should match snapshot with custom className 1`] = `
+<div>
+  <div
+    class="error-boundary custom-boundary-class"
+  >
+    <h2>
+      Something went wrong
+    </h2>
+    <details>
+      <summary>
+        Error details
+      </summary>
+      <pre>
+        Error: Test error
+      </pre>
+    </details>
+    <button
+      style="margin-top: 1rem;"
+    >
+      Try again
+    </button>
+  </div>
+</div>
+`;
+
+exports[`ErrorBoundary Snapshots should match snapshot with custom fallback UI 1`] = `
+<div>
+  <div
+    class="custom-error"
+  >
+    <h3>
+      Custom Error View
+    </h3>
+    <p>
+      Something went wrong in the application
+    </p>
+  </div>
+</div>
+`;
+
+exports[`ErrorBoundary Snapshots should match snapshot with default error UI 1`] = `
+<div>
+  <div
+    class="error-boundary "
+  >
+    <h2>
+      Something went wrong
+    </h2>
+    <details>
+      <summary>
+        Error details
+      </summary>
+      <pre>
+        Error: Test error
+      </pre>
+    </details>
+    <button
+      style="margin-top: 1rem;"
+    >
+      Try again
+    </button>
+  </div>
+</div>
+`;
+
+exports[`ErrorBoundary Snapshots should match snapshot with nested error boundaries 1`] = `
+<div>
+  <div>
+    <div
+      class="error-boundary inner"
+    >
+      <h2>
+        Something went wrong
+      </h2>
+      <details>
+        <summary>
+          Error details
+        </summary>
+        <pre>
+          Error: Nested error
+        </pre>
+      </details>
+      <button
+        style="margin-top: 1rem;"
+      >
+        Try again
+      </button>
+    </div>
+  </div>
+</div>
+`;

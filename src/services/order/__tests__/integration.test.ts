@@ -2,9 +2,29 @@ import { jest } from '@jest/globals';
 import axios from 'axios';
 import winston from 'winston';
 
-// Mock external dependencies
-jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+// Import the OrderSyncService
+import { OrderSyncService } from '../order-sync.service';
+
+// Types
+import { SpocketOrder, SpocketOrderStatus } from '../spocket/types';
+import { SquareOrder, SquareOrderState } from '../square/types';
+import { SyncDirection } from '../types';
+
+// Import axios mock helpers from centralized location
+import { 
+  setupAxiosMock, 
+  resetAxiosMock, 
+  restoreAxiosMock, 
+  mockAxios, 
+  mockGet, 
+  mockPost, 
+  mockPut,
+  mockPatch,
+  mockDelete,
+  mockError,
+  mockTimeout,
+  mockRateLimit 
+} from '../../../__tests__/setup/axios-mock';
 
 // Mock logger
 const mockLogger = {
@@ -25,12 +45,15 @@ const mockConfig = {
     apiUrl: 'https://connect.squareup.com/v2',
     accessToken: 'square-access-token',
     location: 'location-id',
+    locationId: 'location-id',
     webhookSignatureKey: 'square-signature-key',
   },
   sync: {
     maxRetries: 3,
     retryDelay: 1000,
+    retryDelayMs: 500,
     batchSize: 10,
+    pollIntervalMs: 1000,
   },
 };
 
@@ -120,14 +143,25 @@ const createMockSquareOrder = (id: string) => ({
 
 // Setup & teardown
 beforeEach(() => {
-  // Reset mocks
+  // Reset all Jest mocks
   jest.clearAllMocks();
   
-  // Setup default responses
-  mockedAxios.get.mockResolvedValue({ data: {} });
-  mockedAxios.post.mockResolvedValue({ data: {} });
-  mockedAxios.put.mockResolvedValue({ data: {} });
-  mockedAxios.patch.mockResolvedValue({ data: {} });
+  // Initialize a fresh MockAdapter for axios
+  setupAxiosMock();
+});
+
+// Ensure cleanup after each test
+afterEach(() => {
+  // Clean up the axios mock
+  resetAxiosMock();
+  
+  // Reset all Jest mocks
+  jest.resetAllMocks();
+});
+
+// Ensure final cleanup after all tests
+afterAll(() => {
+  restoreAxiosMock();
 });
 
 describe('Order Synchronization Service Integration Tests', () => {
@@ -432,171 +466,151 @@ describe('Order Synchronization Service Integration Tests', () => {
       // Act
       const result = await mockRecoveryService.checkDataConsistency(
         orderId,
-        '
+        'square-order-123'
+      );
+      
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.consistent).toBe(false);
+      expect(result.inconsistencies).toHaveLength(1);
+      expect(result.inconsistencies[0].field).toBe('line_items.quantity');
+    });
+  });
 
-import { jest } from '@jest/globals';
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
+  // Import services (used in the second part of the test file)
+  const SpocketOrderService = jest.fn().mockImplementation(() => ({
+    findOrderByReferenceId: jest.fn(),
+    verifyWebhookSignature: jest.fn(),
+  }));
+  
+  const SquareOrderService = jest.fn().mockImplementation(() => ({
+    findOrderByReferenceId: jest.fn(),
+    findFulfillmentByTrackingNumber: jest.fn(),
+  }));
+  
+  const OrderMapper = jest.fn();
+  const LogService = jest.fn();
+  const ConfigService = jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+  }));
 
-// Import services
-import { SpocketOrderService } from '../spocket/orderService';
-import { SquareOrderService } from '../square/orderService';
-import { OrderSyncService } from '../syncService';
-import { OrderMapper } from '../mapper';
-import { LogService } from '../../logging/logService';
-import { ConfigService } from '../../config/configService';
-
-// Types
-import { SpocketOrder, SpocketOrderStatus } from '../spocket/types';
-import { SquareOrder, SquareOrderState } from '../square/types';
-import { SyncDirection } from '../types';
-
-// Mock the axios instance
-const mockAxios = new MockAdapter(axios);
-
-// Mock config
-const mockConfig = {
-  spocket: {
-    apiUrl: 'https://api.spocket.test',
-    apiKey: 'test-spocket-api-key',
-    webhookSecret: 'test-webhook-secret',
-  },
-  square: {
-    apiUrl: 'https://connect.squareup.test',
-    accessToken: 'test-square-access-token',
-    locationId: 'test-location-id',
-    webhookSignatureKey: 'test-signature-key',
-  },
-  sync: {
-    pollIntervalMs: 1000,
-    maxRetries: 3,
-    retryDelayMs: 500,
-  },
-};
-
-// Mock logger
-const mockLogger = {
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  debug: jest.fn(),
-};
-
-// Sample data
-const sampleSpocketCustomer = {
-  id: 'spkt_cust_123',
-  name: 'Test Customer',
-  email: 'test@example.com',
-  phone: '+11234567890',
-  address: {
-    line1: '123 Test St',
-    city: 'Test City',
-    state: 'TS',
-    postalCode: '12345',
-    country: 'US',
-  },
-};
-
-const sampleSpocketProduct = {
-  id: 'spkt_prod_123',
-  name: 'Test Product',
-  description: 'A test product',
-  price: 19.99,
-  sku: 'TST-123456',
-  inventoryQuantity: 100,
-};
-
-const sampleSpocketOrder: SpocketOrder = {
-  id: 'spkt_ord_123',
-  orderNumber: 'TEST-12345',
-  customerId: sampleSpocketCustomer.id,
-  status: SpocketOrderStatus.PENDING,
-  totalAmount: 29.99,
-  orderDate: new Date('2025-05-01T12:00:00Z'),
-  lineItems: [
-    {
-      productId: sampleSpocketProduct.id,
-      quantity: 1,
-      pricePerItem: 19.99,
-      name: sampleSpocketProduct.name,
-      sku: sampleSpocketProduct.sku,
+  // Sample data for the second part of tests
+  const sampleSpocketCustomer = {
+    id: 'spkt_cust_123',
+    name: 'Test Customer',
+    email: 'test@example.com',
+    phone: '+11234567890',
+    address: {
+      line1: '123 Test St',
+      city: 'Test City',
+      state: 'TS',
+      postalCode: '12345',
+      country: 'US',
     },
-  ],
-  shippingAddress: {
-    line1: '123 Test St',
-    city: 'Test City',
-    state: 'TS',
-    postalCode: '12345',
-    country: 'US',
-  },
-  note: 'Test order',
-  metadata: {
-    source: 'integration_test',
-  },
-};
+  };
 
-const sampleSquareOrder: SquareOrder = {
-  id: 'sq_ord_123',
-  locationId: mockConfig.square.locationId,
-  referenceId: 'TEST-12345',
-  customerId: 'sq_cust_123',
-  state: SquareOrderState.OPEN,
-  createdAt: '2025-05-01T12:00:00Z',
-  updatedAt: '2025-05-01T12:00:00Z',
-  lineItems: [
-    {
-      uid: 'item_1',
-      name: 'Test Product',
-      quantity: '1',
-      basePriceMoney: {
-        amount: 1999,
+  const sampleSpocketProduct = {
+    id: 'spkt_prod_123',
+    name: 'Test Product',
+    description: 'A test product',
+    price: 19.99,
+    sku: 'TST-123456',
+    inventoryQuantity: 100,
+  };
+
+  const sampleSpocketOrder: SpocketOrder = {
+    id: 'spkt_ord_123',
+    orderNumber: 'TEST-12345',
+    customerId: sampleSpocketCustomer.id,
+    status: SpocketOrderStatus.PENDING,
+    totalAmount: 29.99,
+    orderDate: new Date('2025-05-01T12:00:00Z'),
+    lineItems: [
+      {
+        productId: sampleSpocketProduct.id,
+        quantity: 1,
+        pricePerItem: 19.99,
+        name: sampleSpocketProduct.name,
+        sku: sampleSpocketProduct.sku,
+      },
+    ],
+    shippingAddress: {
+      line1: '123 Test St',
+      city: 'Test City',
+      state: 'TS',
+      postalCode: '12345',
+      country: 'US',
+    },
+    note: 'Test order',
+    metadata: {
+      source: 'integration_test',
+    },
+  };
+
+  const sampleSquareOrder: SquareOrder = {
+    id: 'sq_ord_123',
+    locationId: mockConfig.square.locationId,
+    referenceId: 'TEST-12345',
+    customerId: 'sq_cust_123',
+    state: SquareOrderState.OPEN,
+    createdAt: '2025-05-01T12:00:00Z',
+    updatedAt: '2025-05-01T12:00:00Z',
+    lineItems: [
+      {
+        uid: 'item_1',
+        name: 'Test Product',
+        quantity: '1',
+        basePriceMoney: {
+          amount: 1999,
+          currency: 'USD',
+        },
+        variationName: 'Regular',
+      },
+    ],
+    netAmounts: {
+      totalMoney: {
+        amount: 2999,
         currency: 'USD',
       },
-      variationName: 'Regular',
+      taxMoney: {
+        amount: 0,
+        currency: 'USD',
+      },
+      discountMoney: {
+        amount: 0,
+        currency: 'USD',
+      },
+      tipMoney: {
+        amount: 0,
+        currency: 'USD',
+      },
+      serviceMoney: {
+        amount: 0,
+        currency: 'USD',
+      },
     },
-  ],
-  netAmounts: {
-    totalMoney: {
-      amount: 2999,
-      currency: 'USD',
+    source: {
+      name: 'Spocket',
     },
-    taxMoney: {
-      amount: 0,
-      currency: 'USD',
-    },
-    discountMoney: {
-      amount: 0,
-      currency: 'USD',
-    },
-    tipMoney: {
-      amount: 0,
-      currency: 'USD',
-    },
-    serviceMoney: {
-      amount: 0,
-      currency: 'USD',
-    },
-  },
-  source: {
-    name: 'Spocket',
-  },
-  metadata: {
-    source_order_id: 'spkt_ord_123',
-  },
-};
+    metadata: {
+      source_order_id: 'spkt_ord_123'
+    }
+  };
 
-// Setup services
-let configService: ConfigService;
-let logService: LogService;
-let spocketOrderService: SpocketOrderService;
-let squareOrderService: SquareOrderService;
-let orderMapper: OrderMapper;
-let orderSyncService: OrderSyncService;
+// Define service variables at the top level
+let configService: any;
+let logService: any;
+let spocketOrderService: any;
+let squareOrderService: any;
+let orderMapper: any;
+let orderSyncService: any;
 
 describe('Spocket-Square Order Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAxios.reset();
+    
+    // Reset the axios mock for a fresh state
+    resetAxiosMock();
 
     // Setup services with mocks
     configService = {
@@ -609,13 +623,28 @@ describe('Spocket-Square Order Integration', () => {
         }
         return value;
       }),
-    } as any;
+    };
 
-    logService = mockLogger as any;
+    logService = mockLogger;
 
-    spocketOrderService = new SpocketOrderService(configService, logService);
-    squareOrderService = new SquareOrderService(configService, logService);
-    orderMapper = new OrderMapper(configService);
+    // Create proper mock implementations for services
+    spocketOrderService = {
+      findOrderByReferenceId: jest.fn(),
+      verifyWebhookSignature: jest.fn().mockReturnValue(true)
+    };
+    
+    squareOrderService = {
+      findOrderByReferenceId: jest.fn(),
+      findFulfillmentByTrackingNumber: jest.fn(),
+      verifyWebhookSignature: jest.fn().mockReturnValue(true)
+    };
+    
+    orderMapper = {
+      mapSpocketToSquare: jest.fn(),
+      mapSquareToSpocket: jest.fn()
+    };
+    
+    // Initialize the real OrderSyncService with mock dependencies
     orderSyncService = new OrderSyncService(
       configService,
       logService,
@@ -627,20 +656,18 @@ describe('Spocket-Square Order Integration', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    
+    // Reset axios mock for the next test
+    resetAxiosMock();
   });
 
   describe('Order Synchronization Flow', () => {
     it('should sync a new Spocket order to Square', async () => {
       // Mock Spocket API response for getting an order
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .reply(200, { data: sampleSpocketOrder });
+      mockGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, sampleSpocketOrder);
 
       // Mock Square API response for creating an order
-      mockAxios
-        .onPost(`${mockConfig.square.apiUrl}/v2/orders`)
-        .reply(200, { order: sampleSquareOrder });
-
+      mockPost(`${mockConfig.square.apiUrl}/v2/orders`, { order: sampleSquareOrder });
       // Mock method to find matching Square order (should return none first, then the created one)
       jest.spyOn(squareOrderService, 'findOrderByReferenceId')
         .mockResolvedValueOnce(null)
@@ -667,14 +694,10 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should sync a new Square order to Spocket', async () => {
       // Mock Square API response for getting an order
-      mockAxios
-        .onGet(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}`)
-        .reply(200, { order: sampleSquareOrder });
+      mockGet(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}`, { order: sampleSquareOrder });
 
       // Mock Spocket API response for creating an order
-      mockAxios
-        .onPost(`${mockConfig.spocket.apiUrl}/orders`)
-        .reply(200, { data: sampleSpocketOrder });
+      mockPost(`${mockConfig.spocket.apiUrl}/orders`, sampleSpocketOrder);
 
       // Mock method to find matching Spocket order (should return none first, then the created one)
       jest.spyOn(spocketOrderService, 'findOrderByReferenceId')
@@ -734,23 +757,19 @@ describe('Spocket-Square Order Integration', () => {
       };
 
       // Mock Spocket API response for getting an order
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .reply(200, { data: updatedSpocketOrder });
+      mockGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, updatedSpocketOrder);
 
       // Mock that a matching order already exists in Square
       jest.spyOn(squareOrderService, 'findOrderByReferenceId')
         .mockResolvedValue(sampleSquareOrder);
 
       // Mock Square API response for updating an order
-      mockAxios
-        .onPost(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}`)
-        .reply(200, { 
-          order: {
-            ...sampleSquareOrder,
-            state: SquareOrderState.COMPLETED,
-          }
-        });
+      mockPost(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}`, { 
+        order: {
+          ...sampleSquareOrder,
+          state: SquareOrderState.COMPLETED,
+        }
+      });
 
       // Execute sync from Spocket to Square
       const result = await orderSyncService.syncOrderStatus(
@@ -787,23 +806,17 @@ describe('Spocket-Square Order Integration', () => {
       };
 
       // Mock Square API response for getting an order
-      mockAxios
-        .onGet(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}`)
-        .reply(200, { order: updatedSquareOrder });
+      mockGet(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}`, { order: updatedSquareOrder });
 
       // Mock that a matching order already exists in Spocket
       jest.spyOn(spocketOrderService, 'findOrderByReferenceId')
         .mockResolvedValue(sampleSpocketOrder);
 
       // Mock Spocket API response for updating an order
-      mockAxios
-        .onPatch(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .reply(200, { 
-          data: {
-            ...sampleSpocketOrder,
-            status: SpocketOrderStatus.COMPLETED,
-          }
-        });
+      mockPatch(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, {
+        ...sampleSpocketOrder,
+        status: SpocketOrderStatus.COMPLETED,
+      });
 
       // Execute sync from Square to Spocket
       const result = await orderSyncService.syncOrderStatus(
@@ -879,14 +892,16 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should sync fulfillment details from Spocket to Square', async () => {
       // Mock Spocket API response for getting a fulfillment
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/fulfillments/${sampleSpocketFulfillment.id}`)
-        .reply(200, { data: sampleSpocketFulfillment });
+      mockGet(
+        `${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/fulfillments/${sampleSpocketFulfillment.id}`,
+        { data: sampleSpocketFulfillment }
+      );
 
       // Mock Square API response for creating a fulfillment
-      mockAxios
-        .onPost(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}/fulfillments`)
-        .reply(200, { fulfillment: sampleSquareFulfillment });
+      mockPost(
+        `${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}/fulfillments`,
+        { fulfillment: sampleSquareFulfillment }
+      );
 
       // Mock method to find matching Square order 
       jest.spyOn(squareOrderService, 'findOrderByReferenceId')
@@ -921,14 +936,16 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should sync fulfillment details from Square to Spocket', async () => {
       // Mock Square API response for getting a fulfillment
-      mockAxios
-        .onGet(`${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}/fulfillments/${sampleSquareFulfillment.id}`)
-        .reply(200, { fulfillment: sampleSquareFulfillment });
+      mockGet(
+        `${mockConfig.square.apiUrl}/v2/orders/${sampleSquareOrder.id}/fulfillments/${sampleSquareFulfillment.id}`,
+        { fulfillment: sampleSquareFulfillment }
+      );
 
       // Mock Spocket API response for creating a fulfillment
-      mockAxios
-        .onPost(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/fulfillments`)
-        .reply(200, { data: sampleSpocketFulfillment });
+      mockPost(
+        `${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/fulfillments`,
+        { data: sampleSpocketFulfillment }
+      );
 
       // Mock method to find matching Spocket order 
       jest.spyOn(spocketOrderService, 'findOrderByReferenceId')
@@ -1039,14 +1056,16 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should sync payment details from Spocket to Square', async () => {
       // Mock Spocket API response for getting a payment
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/payments/${sampleSpocketPayment.id}`)
-        .reply(200, { data: sampleSpocketPayment });
+      mockGet(
+        `${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/payments/${sampleSpocketPayment.id}`,
+        { data: sampleSpocketPayment }
+      );
 
       // Mock Square API response for creating a payment
-      mockAxios
-        .onPost(`${mockConfig.square.apiUrl}/v2/payments`)
-        .reply(200, { payment: sampleSquarePayment });
+      mockPost(
+        `${mockConfig.square.apiUrl}/v2/payments`,
+        { payment: sampleSquarePayment }
+      );
 
       // Mock method to find matching Square order
       jest.spyOn(squareOrderService, 'findOrderByReferenceId')
@@ -1081,14 +1100,16 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should sync payment details from Square to Spocket', async () => {
       // Mock Square API response for getting a payment
-      mockAxios
-        .onGet(`${mockConfig.square.apiUrl}/v2/payments/${sampleSquarePayment.id}`)
-        .reply(200, { payment: sampleSquarePayment });
+      mockGet(
+        `${mockConfig.square.apiUrl}/v2/payments/${sampleSquarePayment.id}`,
+        { payment: sampleSquarePayment }
+      );
 
       // Mock Spocket API response for creating a payment
-      mockAxios
-        .onPost(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/payments`)
-        .reply(200, { data: sampleSpocketPayment });
+      mockPost(
+        `${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}/payments`,
+        { data: sampleSpocketPayment }
+      );
 
       // Mock method to find matching Spocket order
       jest.spyOn(spocketOrderService, 'findOrderByReferenceId')
@@ -1130,9 +1151,7 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should handle API error responses gracefully', async () => {
       // Mock Spocket API response with an error
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .reply(404, { error: 'Order not found' });
+      mockError(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, 'GET', 404, 'Order not found');
 
       // Execute sync from Spocket to Square
       const result = await orderSyncService.syncOrder(sampleSpocketOrder.id, SyncDirection.SPOCKET_TO_SQUARE);
@@ -1154,15 +1173,14 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should handle network timeouts with retry mechanism', async () => {
       // Mock network timeout then success
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .replyOnce(() => {
-          return new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Network timeout')), 3000);
-          });
-        })
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .replyOnce(200, { data: sampleSpocketOrder });
+      mockTimeout(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, 'GET');
+      
+      // After timeout, return success on retry
+      // (We need to do this in the test itself to ensure the retry gets the success response)
+      setTimeout(() => {
+        resetAxiosMock();
+        mockGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, sampleSpocketOrder);
+      }, 3500);
 
       // Mock Square API response for creating an order
       mockAxios
@@ -1200,11 +1218,13 @@ describe('Spocket-Square Order Integration', () => {
 
     it('should handle rate limiting by implementing backoff strategy', async () => {
       // Mock rate limit error then success
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .replyOnce(429, { error: 'Rate limit exceeded' })
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`)
-        .replyOnce(200, { data: sampleSpocketOrder });
+      mockRateLimit(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, 'GET');
+      
+      // After rate limit error, return success on retry
+      setTimeout(() => {
+        resetAxiosMock();
+        mockGet(`${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`, sampleSpocketOrder);
+      }, 100);
 
       // Mock Square API response for creating an order
       mockAxios
@@ -1239,9 +1259,10 @@ describe('Spocket-Square Order Integration', () => {
       };
 
       // Mock Spocket API response with invalid data
-      mockAxios
-        .onGet(`${mockConfig.spocket.apiUrl}/orders/spkt_ord_invalid`)
-        .reply(200, { data: invalidSpocketOrder });
+      mockGet(
+        `${mockConfig.spocket.apiUrl}/orders/spkt_ord_invalid`,
+        { data: invalidSpocketOrder }
+      );
 
       // Execute sync with invalid data
       const result = await orderSyncService.syncOrder('spkt_ord_invalid', SyncDirection.SPOCKET_TO_SQUARE);
@@ -1262,6 +1283,71 @@ describe('Spocket-Square Order Integration', () => {
       
       // Verify no attempt was made to create an order in Square
       expect(mockAxios.history.post).toHaveLength(0);
+    });
+  });
+
+  describe('Error Cases', () => {
+    it('should handle malformed API responses', async () => {
+      // Mock malformed response
+      mockGet(
+        `${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`,
+        { malformed: 'data' }
+      );
+
+      const result = await orderSyncService.syncOrder(
+        sampleSpocketOrder.id,
+        SyncDirection.SPOCKET_TO_SQUARE
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid response format');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid response format'),
+        expect.any(Object)
+      );
+    });
+
+    it('should handle concurrent sync attempts', async () => {
+      // Mock success response
+      mockGet(
+        `${mockConfig.spocket.apiUrl}/orders/${sampleSpocketOrder.id}`,
+        sampleSpocketOrder
+      );
+
+      // Start multiple sync operations
+      const syncPromises = Array.from({ length: 3 }, () =>
+        orderSyncService.syncOrder(
+          sampleSpocketOrder.id,
+          SyncDirection.SPOCKET_TO_SQUARE
+        )
+      );
+
+      const results = await Promise.all(syncPromises);
+      
+      // Only one should succeed, others should indicate already in progress
+      const successCount = results.filter(r => r.success).length;
+      const inProgressCount = results.filter(r => r.error?.includes('Sync in progress')).length;
+      
+      expect(successCount).toBe(1);
+      expect(inProgressCount).toBe(2);
+    });
+
+    it('should handle infrastructure errors', async () => {
+      // Mock DNS error
+      mockAxios.onGet(new RegExp(mockConfig.spocket.apiUrl)).networkError();
+
+      const result = await orderSyncService.syncOrder(
+        sampleSpocketOrder.id,
+        SyncDirection.SPOCKET_TO_SQUARE
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Network error');
+      expect(result.retryable).toBe(true);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Network error'),
+        expect.any(Object)
+      );
     });
   });
 
@@ -1412,4 +1498,33 @@ describe('Spocket-Square Order Integration', () => {
         });
 
       // Mock webhook verification
-      jest.spyOn(squareOrderService,
+      jest.spyOn(squareOrderService, 'verifyWebhookSignature').mockReturnValue(true);
+
+      // Process webhook
+      const result = await orderSyncService.processSquareWebhook(
+        sampleSquareFulfillmentWebhook,
+        'valid-signature-header',
+        new Date().toISOString()
+      );
+
+      // Verify results
+      expect(result.success).toBe(true);
+      expect(result.event).toBe('order.fulfillment.updated');
+      expect(result.orderId).toBe(sampleSquareOrder.id);
+      
+      // Verify syncFulfillment was called with correct parameters
+      expect(syncFulfillmentSpy).toHaveBeenCalledWith(
+        sampleSquareOrder.id,
+        'sq_ful_123',
+        SyncDirection.SQUARE_TO_SPOCKET
+      );
+      
+      // Verify logger was called
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Processed Square webhook'),
+        expect.any(Object)
+      );
+    });
+  });
+});
+});
