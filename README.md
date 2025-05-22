@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/jodit-react.svg)](https://www.npmjs.com/package/jodit-react)
 [![npm](https://img.shields.io/npm/dm/jodit-react.svg)](https://www.npmjs.com/package/jodit-react)
 [![npm](https://img.shields.io/npm/l/jodit-react.svg)](https://www.npmjs.com/package/jodit-react)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/TheScottyB/jodit-react-clone/ci.yml?branch=master)](https://github.com/TheScottyB/jodit-react-clone/actions)
 
 A modern React component wrapper for [Jodit](https://xdsoft.net/jodit/) WYSIWYG editor, updated for 2025 standards.
 
@@ -24,15 +25,35 @@ Perfect for small retailers looking to enhance their online presence without sig
 - TypeScript support with full type definitions
 - React 19.1 compatibility
 - Modern build system with Webpack 5
-- Comprehensive test coverage
+- Comprehensive test coverage with Jest and React Testing Library
 - Improved value handling and prop updates
 - Accessibility compliant for diverse user needs
 - Optimized performance for fast loading and editing experience
+- **Order Synchronization** for seamless e-commerce integration
+- **Square SDK Integration** for payment processing and inventory management
+- Rate limiting and circuit breaking for robust API interactions
+- Efficient error handling and logging system
 
 ## Installation
 
+### Basic Installation
+
 ```bash
 npm install jodit-react@^1.1.0
+```
+
+### Installation with Square Integration
+
+For projects requiring Square integration for e-commerce capabilities:
+
+```bash
+npm install jodit-react@^1.1.0 @square/web-sdk square
+```
+
+**Note:** When using with React 19, you may need to use the `--legacy-peer-deps` flag:
+
+```bash
+npm install jodit-react@^1.1.0 @square/web-sdk square --legacy-peer-deps
 ```
 
 ## Usage
@@ -76,6 +97,200 @@ const Editor: React.FC = () => {
 - `tabIndex`: number - Tab index for the editor
 - `name`: string - Name attribute for the textarea
 
+## Square Integration
+
+This package provides seamless integration with Square's payment and order management systems, enabling rich content editing for product descriptions, digital catalogs, and marketing materials.
+
+### Setting Up Square Integration
+
+```typescript
+import React, { useState, useRef } from 'react';
+import { JoditEditor } from 'jodit-react';
+import { SquareClient } from '@square/web-sdk';
+
+const ProductEditor: React.FC = () => {
+  const editor = useRef(null);
+  const [description, setDescription] = useState('');
+  const [squareClient, setSquareClient] = useState(null);
+  
+  useEffect(() => {
+    // Initialize Square client
+    const initSquare = async () => {
+      const client = await SquareClient.initialize({
+        applicationId: 'YOUR_SQUARE_APP_ID',
+        locationId: 'YOUR_LOCATION_ID',
+        environment: 'sandbox' // Use 'production' for live environment
+      });
+      setSquareClient(client);
+    };
+    
+    initSquare();
+  }, []);
+  
+  const saveProductDescription = async () => {
+    try {
+      // Example: Update catalog item with rich text description
+      const response = await fetch('/api/square/catalog/item/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          itemId: 'YOUR_ITEM_ID',
+          description: description
+        })
+      });
+      
+      if (response.ok) {
+        console.log('Product description updated successfully');
+      }
+    } catch (error) {
+      console.error('Error updating product description:', error);
+    }
+  };
+  
+  return (
+    <div>
+      <h2>Product Description Editor</h2>
+      <JoditEditor
+        ref={editor}
+        value={description}
+        onChange={setDescription}
+        config={{
+          buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'link', 'image'],
+          uploader: {
+            insertImageAsBase64URI: true
+          }
+        }}
+      />
+      <button onClick={saveProductDescription}>Save Description</button>
+    </div>
+  );
+};
+```
+
+### Order Synchronization
+
+The order synchronization feature allows for real-time updates between your content management system and Square's order processing:
+
+```typescript
+import { OrderSyncService } from 'jodit-react/services';
+
+// Initialize the order sync service
+const orderSyncService = new OrderSyncService({
+  accessToken: 'YOUR_SQUARE_ACCESS_TOKEN',
+  environment: 'sandbox', // or 'production'
+  webhookUrl: 'https://your-webhook-endpoint.com/square',
+  syncInterval: 5 * 60 * 1000 // 5 minutes in milliseconds
+});
+
+// Start listening for order updates
+orderSyncService.startSync();
+
+// Get notified on order changes
+orderSyncService.on('orderUpdated', (order) => {
+  console.log('Order updated:', order);
+  // Update your UI or trigger other business logic
+});
+```
+
+
+## Bundle Size Optimization
+
+This package implements several strategies to optimize bundle size for production deployments:
+
+### Code Splitting
+
+```javascript
+// Example: Dynamic import for the editor component
+import React, { lazy, Suspense } from 'react';
+
+const JoditEditor = lazy(() => import('jodit-react').then(module => ({ 
+  default: module.JoditEditor 
+})));
+
+const MyComponent = () => (
+  <Suspense fallback={<div>Loading editor...</div>}>
+    <JoditEditor />
+  </Suspense>
+);
+```
+
+### Production Build Configuration
+
+The `npm run build` command uses webpack optimizations including:
+
+- Tree shaking to eliminate unused code
+- Minification and compression
+- Module concatenation
+
+If you're experiencing bundle size issues, consider importing only needed components:
+
+```javascript
+// Instead of importing the entire package
+import { JoditEditor } from 'jodit-react';
+
+// Import specific components to reduce bundle size
+import JoditEditor from 'jodit-react/build/JoditEditor';
+```
+
+## Testing Infrastructure
+
+The project uses a comprehensive testing suite:
+
+### Available Test Commands
+
+```bash
+# Run all tests
+npm test
+
+# Run unit tests only
+npm run test:unit
+
+# Run integration tests
+npm run test:integration
+
+# Run tests with coverage reporting
+npm run test:coverage
+
+# Run performance tests
+npm run test:performance
+
+# Run snapshot tests
+npm run test:snapshot
+```
+
+### Test Structure
+
+```
+src/
+  __tests__/
+    unit/            # Unit tests for individual components
+    integration/     # Integration tests for component interactions
+    performance/     # Performance benchmarks
+    fixtures/        # Test fixtures and mock data
+    helpers/         # Test utilities and helpers
+```
+
+### Testing Square Integration
+
+For Square integration testing, mock services are provided:
+
+```typescript
+import { MockSquareClient } from 'jodit-react/testing';
+
+// In your test
+test('should update product with rich text', async () => {
+  const mockClient = new MockSquareClient();
+  mockClient.mockCatalogResponse({
+    success: true,
+    itemId: 'test-item-123'
+  });
+  
+  // Test component with mock client
+  // ...
+});
+```
 
 ## Development Tools
 
@@ -103,10 +318,11 @@ For contributors or those wanting to run the project locally:
    - Node.js (v18.0.0 or higher)
    - npm (v8.0.0 or higher)
    - Git
+   - Square Developer Account (for Square integration features)
 
 2. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/jodit-react-clone.git
+   git clone https://github.com/TheScottyB/jodit-react-clone.git
    cd jodit-react-clone
    ```
 
@@ -203,16 +419,20 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes and updates.
 
 For questions or issues regarding implementation, please:
 
-1. Check the [existing issues](https://github.com/your-username/jodit-react-clone/issues) on GitHub
+1. Check the [existing issues](https://github.com/TheScottyB/jodit-react-clone/issues) on GitHub
 2. Create a new issue if your problem hasn't been addressed
 3. For usage questions, consider using [Stack Overflow](https://stackoverflow.com/questions/tagged/jodit-react) with the tag `jodit-react`
+4. For Square-specific integration questions, refer to [Square Developer Documentation](https://developer.squareup.com/docs)
 
 ## Business Integration Examples
 
-- E-commerce product description editors
+- E-commerce product description editors with Square Catalog integration
 - Blog post authoring systems for small business websites
 - Customer review management interfaces
 - Email template creation tools for marketing campaigns
 - Knowledge base and documentation systems
+- Product catalog management for Square merchants
+- Order detail customization interfaces
+- Digital receipt and invoice template editors
 
 By implementing this editor in your small business applications, you provide users with professional content creation capabilities without additional technical complexity.
