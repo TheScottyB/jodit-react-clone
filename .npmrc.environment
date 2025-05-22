@@ -1,0 +1,27 @@
+# Development environment
+.npmrc.development
+registry=https://registry.npmjs.org/
+always-auth=true
+strict-peer-dependencies=true
+audit-level=low
+shell-safe-scripts=true
+
+# Staging environment
+.npmrc.staging
+registry=https://registry.npmjs.org/
+always-auth=true
+strict-peer-dependencies=true
+audit-level=moderate
+shell-safe-scripts=true
+ignore-scripts=true
+
+# Production environment
+.npmrc.production
+registry=https://registry.npmjs.org/
+always-auth=true
+strict-peer-dependencies=true
+audit-level=high
+shell-safe-scripts=true
+ignore-scripts=true
+prefer-frozen-lockfile=true
+verify-store-integrity=true
