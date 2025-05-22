@@ -10,13 +10,20 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:integration": "jest --config=jest.config.js",
+    "test": "node scripts/run-tests.js",
+    "test:watch": "node scripts/run-tests.js --watch",
+    "test:integration": "node scripts/run-tests.js integration --verbose",
     "test:sync": "jest --config=jest.config.js src/__tests__/sync.test.ts",
+    "test:update": "node scripts/run-tests.js --update",
+    "test:coverage": "node scripts/run-tests.js --coverage",
+    "test:ci": "node scripts/run-tests.js --ci --coverage --bail",
     "prepare": "husky install",
     "prepublishOnly": "npm run build",
-    "demo": "cd examples && webpack serve --config ./webpack.config.js --mode development --port 4000 --hot"
+    "demo": "cd examples && webpack serve --config ./webpack.config.js --mode development --port 4000 --hot",
+    "test:unit": "node scripts/run-tests.js unit --verbose",
+    "test:performance": "node scripts/run-tests.js performance",
+    "test:snapshot": "node scripts/run-tests.js snapshot",
+    "test:debug": "node scripts/run-tests.js --debug --verbose"
   },
   "keywords": [
     "react",
@@ -39,7 +46,10 @@
     "bottleneck": "^2.19.5",
     "dotenv": "^16.5.0",
     "jodit": "^4.6.2",
-    "winston": "^3.17.0"
+    "limiter": "^3.0.0",
+    "square": "^42.2.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "peerDependencies": {
     "react": "^19.1.0",
@@ -59,6 +69,7 @@
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "axios-mock-adapter": "^2.1.0",
     "babel-jest": "^29.7.0",
     "babel-loader": "^9.1.3",
     "css-loader": "^6.10.0",

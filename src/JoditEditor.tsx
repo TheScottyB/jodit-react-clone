@@ -1,6 +1,6 @@
 import { useEffect, useRef, forwardRef, useLayoutEffect } from 'react';
 import { Jodit } from 'jodit';
-import 'jodit/build/jodit.min.css';
+import 'jodit/es2021/jodit.min.css';
 
 export interface JoditEditorProps {
   value: string;
