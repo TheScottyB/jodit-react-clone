@@ -36,10 +36,26 @@ Perfect for small retailers looking to enhance their online presence without sig
 
 ## Installation
 
+### Prerequisites
+
+This project uses PNPM for package management and Volta for Node.js version management. Install them first:
+
+1. **Install Volta:**
+   ```bash
+   curl https://get.volta.sh | bash
+   ```
+
+2. **Install PNPM:**
+   ```bash
+   volta install pnpm@latest
+   ```
+
+Volta will automatically use the correct Node.js version (24.1.0) as specified in our package.json.
+
 ### Basic Installation
 
 ```bash
-npm install jodit-react@^1.1.0
+pnpm add jodit-react@^1.1.0
 ```
 
 ### Installation with Square Integration
@@ -47,14 +63,10 @@ npm install jodit-react@^1.1.0
 For projects requiring Square integration for e-commerce capabilities:
 
 ```bash
-npm install jodit-react@^1.1.0 @square/web-sdk square
+pnpm add jodit-react@^1.1.0 @square/web-sdk square
 ```
 
-**Note:** When using with React 19, you may need to use the `--legacy-peer-deps` flag:
-
-```bash
-npm install jodit-react@^1.1.0 @square/web-sdk square --legacy-peer-deps
-```
+**Note:** When using with React 19, PNPM handles peer dependencies automatically, so no additional flags are needed.
 
 ## Usage
 
@@ -242,22 +254,22 @@ The project uses a comprehensive testing suite:
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run unit tests only
-npm run test:unit
+pnpm test:unit
 
 # Run integration tests
-npm run test:integration
+pnpm test:integration
 
 # Run tests with coverage reporting
-npm run test:coverage
+pnpm test:coverage
 
 # Run performance tests
-npm run test:performance
+pnpm test:performance
 
 # Run snapshot tests
-npm run test:snapshot
+pnpm test:snapshot
 ```
 
 ### Test Structure
@@ -315,56 +327,95 @@ This project leverages modern development tools to ensure high quality and produ
 For contributors or those wanting to run the project locally:
 
 1. **Prerequisites:**
-   - Node.js (v18.0.0 or higher)
-   - npm (v8.0.0 or higher)
+   - Volta (for Node.js version management)
+   - PNPM (v8.0.0 or higher)
    - Git
    - Square Developer Account (for Square integration features)
 
-2. **Clone the repository:**
+2. **Set up Volta and PNPM:**
+   ```bash
+   # Install Volta
+   curl https://get.volta.sh | bash
+   
+   # Install PNPM using Volta
+   volta install pnpm@latest
+   ```
+
+3. **Clone the repository:**
    ```bash
    git clone https://github.com/TheScottyB/jodit-react-clone.git
    cd jodit-react-clone
    ```
+   Volta will automatically switch to the correct Node.js version (24.1.0) as specified in package.json.
 
-3. **Install dependencies:**
+4. **Install dependencies:**
    ```bash
-   npm install --legacy-peer-deps
+   pnpm install
    ```
-   Note: The `--legacy-peer-deps` flag may be necessary due to React 19 compatibility.
+   Note: PNPM handles peer dependencies automatically, providing better dependency resolution than npm.
 
-4. **Start development server:**
+5. **Start development server:**
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
-5. **Run the demo application:**
+6. **Run the demo application:**
    ```bash
-   npm run demo
+   pnpm demo
    ```
    The demo will be available at `http://localhost:4000`
 
-6. **Verify your setup:**
+7. **Verify your setup:**
    - The demo page should load with a functioning editor
    - Try formatting text and inserting images to confirm functionality
 
-7. **Common troubleshooting:**
-   - If you encounter module resolution issues, try clearing npm cache: `npm cache clean --force`
+8. **Common troubleshooting:**
+   - If you encounter module resolution issues, try clearing PNPM store: `pnpm store prune`
    - For React version conflicts, check `package.json` and ensure compatible versions
+   - If Volta isn't detecting the correct Node.js version, run: `volta setup`
+
+### Why PNPM?
+
+We use PNPM as our package manager for several key benefits:
+
+- **Disk space efficiency:** PNPM uses a content-addressable store to avoid duplicating packages
+- **Strict dependency management:** Prevents phantom dependencies and ensures reliable builds
+- **Fast installation:** Parallel operations and efficient algorithms make installations quick
+- **Built-in monorepo support:** Better handling of workspace features
+- **Deterministic builds:** Guaranteed same dependency tree across all machines
+
+### Volta Integration
+
+Volta ensures all developers use the same Node.js version (24.1.0) and npm version (11.3.0) as specified in our package.json:
+
+```json
+"volta": {
+  "node": "24.1.0",
+  "npm": "11.3.0"
+}
+```
+
+This configuration is automatically applied when you enter the project directory.
 
 ## Available Scripts
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm test` - Run tests
-- `npm run lint` - Run linting
-- `npm run type-check` - Run type checking
-- `npm run demo` - Run demo application
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm test` - Run tests
+- `pnpm lint` - Run linting
+- `pnpm type-check` - Run type checking
+- `pnpm demo` - Run demo application
 
 ## Updates
 
 To update to the latest version:
 ```bash
-npm update jodit-react
+pnpm update jodit-react
+```
+
+To update all dependencies:
+```bash
+pnpm update
 ```
 
 
