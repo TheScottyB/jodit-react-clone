@@ -18,12 +18,16 @@
     "test:coverage": "node scripts/run-tests.js --coverage",
     "test:ci": "node scripts/run-tests.js --ci --coverage --bail",
     "prepare": "husky install",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "pnpm run build && pnpm run security:check",
     "demo": "cd examples && webpack serve --config ./webpack.config.js --mode development --port 4000 --hot",
     "test:unit": "node scripts/run-tests.js unit --verbose",
     "test:performance": "node scripts/run-tests.js performance",
     "test:snapshot": "node scripts/run-tests.js snapshot",
-    "test:debug": "node scripts/run-tests.js --debug --verbose"
+    "test:debug": "node scripts/run-tests.js --debug --verbose",
+    "security:check": "pnpm audit && pnpm dlx snyk test",
+    "security:fix": "pnpm audit fix",
+    "security:dependencies": "pnpm dlx depcheck",
+    "preinstall": "npx only-allow pnpm"
   },
   "keywords": [
     "react",
@@ -105,11 +109,16 @@
   "engines": {
     "node": ">=18.0.0"
   },
-          "square": {
-            "supportedVersions": ">=42.0.0"
-          },
-          "volta": {
-            "node": "24.1.0",
-            "npm": "11.3.0"
-          }
+  "square": {
+    "supportedVersions": ">=42.0.0"
+  },
+  "volta": {
+    "node": "24.1.0",
+    "npm": "11.3.0"
+  },
+  "packageManager": "pnpm@8.x",
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
