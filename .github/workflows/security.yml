@@ -9,7 +9,7 @@ on:
     - cron: '0 0 * * 0'  # Weekly security audit
 
 env:
-  PNPM_VERSION: 8.x
+  PNPM_VERSION: 10.11.0
   NODE_VERSION: 24.1.0
 
 jobs:

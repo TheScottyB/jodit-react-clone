@@ -68,8 +68,9 @@
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@babel/runtime": "^7.27.1",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^15.0.0",
+    "@testing-library/react": "^16.0.0",
     "@types/jest": "^29.5.14",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
@@ -114,9 +115,10 @@
   },
   "volta": {
     "node": "24.1.0",
-    "npm": "11.3.0"
+    "npm": "11.3.0",
+    "pnpm": "10.11.0"
   },
-  "packageManager": "pnpm@8.x",
+  "packageManager": "pnpm@10.11.0",
   "publishConfig": {
     "access": "restricted",
     "registry": "https://registry.npmjs.org/"
