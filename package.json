@@ -1,7 +1,7 @@
 {
   "name": "jodit-react",
   "version": "1.1.0",
-  "description": "Modern Jodit WYSIWYG editor React component",
+  "description": "Modern Jodit WYSIWYG editor React component with Square integration",
   "main": "build/jodit-react.js",
   "types": "build/index.d.ts",
   "scripts": {
@@ -35,7 +35,9 @@
     "rich editor",
     "rich text editor",
     "rte",
-    "typescript"
+    "typescript",
+    "square",
+    "e-commerce"
   ],
   "author": "Chupurnov <chupurnov@gmail.com> (https://xdsoft.net/)",
   "license": "MIT",
@@ -94,13 +96,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jodit/jodit-react.git"
+    "url": "git+https://github.com/TheScottyB/jodit-react-clone.git"
   },
   "bugs": {
-    "url": "https://github.com/jodit/jodit-react/issues"
+    "url": "https://github.com/TheScottyB/jodit-react-clone/issues"
   },
-  "homepage": "https://xdsoft.net/jodit/",
+  "homepage": "https://github.com/TheScottyB/jodit-react-clone",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "square": {
+    "supportedVersions": ">=42.0.0"
   }
 }
