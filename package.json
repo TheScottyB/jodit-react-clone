@@ -114,9 +114,10 @@
   },
   "volta": {
     "node": "24.1.0",
-    "npm": "11.3.0"
+    "npm": "11.3.0",
+    "pnpm": "10.11.0"
   },
-  "packageManager": "pnpm@8.x",
+  "packageManager": "pnpm@10.11.0",
   "publishConfig": {
     "access": "restricted",
     "registry": "https://registry.npmjs.org/"
